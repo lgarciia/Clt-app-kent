@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Explorer — GUEUDET (Recherche produit)</title>
+  <title>Explorer — Gueudet (Recherche produit)</title>
 
   <!-- SheetJS -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -19,7 +19,6 @@
       --accent:#7c3aed;
       --accent2:#22c55e;
       --warn:#f59e0b;
-      --bad: rgba(255,110,110,0.92);
       --shadow:0 18px 40px rgba(0,0,0,.45);
       --radius:18px;
       --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -92,7 +91,9 @@
       border-color: rgba(124,58,237,.35);
       background: rgba(124,58,237,.14);
     }
-    .btn.ghost{ background: rgba(255,255,255,0.04); }
+    .btn.ghost{
+      background: rgba(255,255,255,0.04);
+    }
     .btnMini{
       padding:8px 10px;
       font-size:14px;
@@ -137,7 +138,7 @@
     .dot{width:8px;height:8px;border-radius:99px;background: rgba(255,255,255,0.25);}
     .dot.ok{background: var(--accent2)}
     .dot.warn{background: var(--warn)}
-    .dot.bad{background: var(--bad)}
+    .dot.bad{background: rgba(255,110,110,0.92)}
 
     .grid{
       display:flex;
@@ -284,7 +285,7 @@
     <div class="brand">
       <div class="logo"></div>
       <div class="title">
-        <b>Explorer — GUEUDET</b>
+        <b>Explorer — Gueudet</b>
         <span>Recherche produit → clients à appeler (réf / désignation)</span>
       </div>
     </div>
@@ -292,7 +293,7 @@
     <div class="actions">
       <input id="fileInput" class="fileInput" type="file" accept=".xlsx,.xls" />
       <button class="btn btnMini" id="btnPickFile" title="Charger un fichier">📁</button>
-      <button class="btn primary" id="btnReload">Recharger gueudetdata.xlsx</button>
+      <button class="btn primary" id="btnReload">Recharger Gueudetdata.xlsx</button>
       <button class="btn ghost" id="btnExportXlsx">XLSX</button>
       <button class="btn ghost" id="btnExportCsv">CSV</button>
       <button class="btn ghost" id="btnReset">Reset</button>
@@ -339,7 +340,7 @@
 
     <div class="meta" style="margin-top:12px;">
       <span class="chip"><span class="dot" id="dotStatus"></span><span id="statusText">En attente du fichier…</span></span>
-      <span class="chip"><span class="dot ok"></span><span>Auto : <b>gueudetdata.xlsx</b></span></span>
+      <span class="chip"><span class="dot ok"></span><span>Auto : <b>Gueudetdata.xlsx</b></span></span>
       <span class="chip"><span class="dot" id="dotUrl"></span><span id="urlText">URL : <b>—</b></span></span>
       <span class="chip"><span class="dot"></span><span>Cache : <b>localStorage</b></span></span>
     </div>
@@ -390,8 +391,8 @@
   // =========================
   // CONFIG
   // =========================
-  const FILE_NAME = "gueudetdata.xlsx";
-  const CACHE_KEY = "GUEUDET_DATA_CACHE_V1";
+  const FILE_NAME = "psadata.xlsx";
+  const CACHE_KEY = "PSA_DATA_CACHE_V1";
 
   // =========================
   // DOM
@@ -449,7 +450,7 @@
   } else {
     setStatus("warn", "En attente du fichier…");
     setUrlChip("—", false);
-    renderEmpty("Mets gueudetdata.xlsx à côté ou charge un fichier.");
+    renderEmpty("Mets Gueudetdata.xlsx à côté ou charge un fichier.");
   }
 
   autoFetch(false);
@@ -469,7 +470,7 @@
   });
 
   el.btnReset.addEventListener("click", () => {
-    if (!confirm("Supprimer le cache local de la base GUEUDET ?")) return;
+    if (!confirm("Supprimer le cache local de la base Gueudet ?")) return;
     localStorage.removeItem(CACHE_KEY);
     baseRows = [];
     lastResults = [];
@@ -482,12 +483,13 @@
     el.qtyLabel.textContent = "0";
     setUrlChip("—", false);
     renderEmpty("Cache supprimé. Recharge un fichier.");
-    setStatus("warn", "Cache supprimé. Recharge gueudetdata.xlsx.");
+    setStatus("warn", "Cache supprimé. Recharge Gueudetdata.xlsx.");
   });
 
   el.btnSearch.addEventListener("click", runSearch);
   el.q.addEventListener("keydown", (e) => { if (e.key === "Enter") runSearch(); });
 
+  // live search (garde le bouton utile)
   let tt = null;
   el.q.addEventListener("input", () => {
     clearTimeout(tt);
@@ -514,7 +516,6 @@
     try{
       setStatus("warn", `Chargement auto : ${FILE_NAME}…`);
 
-      // Chemin RELATIF au dossier de la page (le vrai truc GitHub Pages)
       const pageDir = location.href.replace(/[#?].*$/,"").replace(/\/[^\/]*$/, "/");
       const urlSameDir = new URL(FILE_NAME, pageDir).toString();
       const urlDataDir = new URL("data/" + FILE_NAME, pageDir).toString();
@@ -710,7 +711,7 @@
       return;
     }
     if (!baseRows.length){
-      renderEmpty("Base non chargée. Mets gueudetdata.xlsx à côté ou charge un fichier via 📁.");
+      renderEmpty("Base non chargée. Mets Gueudetdata.xlsx à côté ou charge un fichier via 📁.");
       return;
     }
 
@@ -719,12 +720,40 @@
     const minQty = Math.max(0, Number(el.minQty.value || 0));
     const qNorm = norm(query);
 
+    // ✅ FIX NUMÉRIQUE: on ignore les zéros à gauche si la recherche est un nombre
+    function stripLeadingZeros(s){
+      s = String(s || "").trim();
+      if (!s) return "";
+      if (/^\d+$/.test(s)) return s.replace(/^0+/, "") || "0";
+      return s;
+    }
+
     function matches(fieldValue){
-      const v = norm(fieldValue);
+      const rawVal = String(fieldValue || "").trim();
+      if (!rawVal) return false;
+
+      const v = norm(rawVal);
       if (!v) return false;
-      if (matchType === "exact") return v === qNorm;
-      if (matchType === "starts") return v.startsWith(qNorm);
-      return v.includes(qNorm);
+
+      // match classique
+      if (matchType === "exact") {
+        if (v === qNorm) return true;
+      } else if (matchType === "starts") {
+        if (v.startsWith(qNorm)) return true;
+      } else {
+        if (v.includes(qNorm)) return true;
+      }
+
+      // match “numérique sans zéros”
+      const qNum = stripLeadingZeros(query);
+      const vNum = stripLeadingZeros(rawVal);
+      if (qNum && vNum && /^\d+$/.test(qNum) && /^\d+$/.test(vNum)){
+        if (matchType === "exact") return vNum === qNum;
+        if (matchType === "starts") return vNum.startsWith(qNum);
+        return vNum.includes(qNum);
+      }
+
+      return false;
     }
 
     const filtered = baseRows.filter(r => {
@@ -788,7 +817,7 @@
       const dessShort = dessArr.slice(0, 6).join(" | ");
 
       const copyText =
-        `GUEUDET — ${r.clientName || "—"}\n` +
+        `PSA — ${r.clientName || "—"}\n` +
         `N° client interne: ${r.clientInternal || "—"}\n` +
         `Quantité: ${Math.round(r.qty)}\n` +
         `Références: ${refsShort || "—"}\n` +
@@ -839,9 +868,6 @@
     el.results.innerHTML = `<div class="empty">${esc(msg || "—")}</div>`;
   }
 
-  // =========================
-  // EXPORTS
-  // =========================
   function exportCSV(){
     if (!lastResults.length){
       alert("Aucun résultat à exporter.");
@@ -849,7 +875,7 @@
     }
     const ws = XLSX.utils.json_to_sheet(lastResults);
     const csv = XLSX.utils.sheet_to_csv(ws, { FS: ";", RS: "\n" });
-    downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), `explorer_gueudet_${stamp()}.csv`);
+    downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), `explorer_Gueudet_${stamp()}.csv`);
   }
 
   function exportXLSX(){
@@ -863,13 +889,10 @@
     const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     downloadBlob(
       new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
-      `explorer_gueudet_${stamp()}.xlsx`
+      `explorer_Gueudet_${stamp()}.xlsx`
     );
   }
 
-  // =========================
-  // STATUS
-  // =========================
   function setStatus(type, text){
     el.statusText.textContent = text;
     el.dotStatus.classList.remove("ok","warn","bad");
@@ -889,9 +912,6 @@
     }, 900);
   }
 
-  // =========================
-  // HELPERS
-  // =========================
   function loadJSON(key, fallback){
     try{
       const raw = localStorage.getItem(key);
@@ -983,7 +1003,6 @@
     try{ document.execCommand("copy"); }catch{}
     ta.remove();
   }
-
 })();
 </script>
 </body>
